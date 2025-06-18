@@ -8,17 +8,22 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle, Chrome } from "lucide-react"
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  AlertCircle,
+  CheckCircle,
+  Chrome,
+} from "lucide-react"
 import Link from "next/link"
 import Header from "../../components/header"
 import Footer from "../../components/footer"
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState<{
-    email: string
-    password: string
-    confirmPassword: string
-  }>({
+  const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
@@ -32,12 +37,9 @@ export default function SignUpPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is already signed in
     const checkSession = async () => {
       const session = await getSession()
-      if (session) {
-        router.push("/dashboard")
-      }
+      if (session) router.push("/dashboard")
     }
     checkSession()
   }, [router])
@@ -54,37 +56,32 @@ export default function SignUpPage() {
     setError("")
     setSuccess("")
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords don't match")
+      setError("Passwords do not match.")
       setIsLoading(false)
       return
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
+      setError("Password must be at least 6 characters long.")
       setIsLoading(false)
       return
     }
 
     if (!agreeToTerms) {
-      setError("Please agree to the terms and conditions")
+      setError("You must agree to the terms and conditions.")
       setIsLoading(false)
       return
     }
 
     try {
-      // Simulate account creation
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      setSuccess("Account created successfully! You can now sign in.")
-
-      // Redirect to sign in page after 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // simulate request
+      setSuccess("Account created successfully! Redirecting to login...")
       setTimeout(() => {
         router.push("/auth/login")
       }, 2000)
-    } catch (error) {
-      setError("Failed to create account. Please try again.")
+    } catch (err) {
+      setError("Account creation failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -93,13 +90,10 @@ export default function SignUpPage() {
   const handleGoogleSignUp = async () => {
     setIsLoading(true)
     setError("")
-
     try {
-      await signIn("google", {
-        callbackUrl: "/dashboard",
-      })
-    } catch (error) {
-      setError("Google sign up failed. Please try again.")
+      await signIn("google", { callbackUrl: "/dashboard" })
+    } catch (err) {
+      setError("Google sign up failed. Try again.")
       setIsLoading(false)
     }
   }
@@ -116,11 +110,16 @@ export default function SignUpPage() {
         <div className="w-full max-w-lg px-4 sm:px-6 lg:px-8">
           <Card className="border-2 border-gray-200 shadow-xl">
             <CardHeader className="text-center pb-8 pt-8">
-              <CardTitle className="text-3xl font-bold text-gray-900 mb-2">Create Account</CardTitle>
-              <p className="text-gray-600 text-lg">Start your UPSC preparation journey</p>
+              <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
+                Create Account
+              </CardTitle>
+              <p className="text-gray-600 text-lg">
+                Start your UPSC preparation journey
+              </p>
             </CardHeader>
+
             <CardContent className="space-y-8 px-8 pb-8">
-              {/* Error/Success Messages */}
+              {/* Alerts */}
               {error && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center gap-3">
                   <AlertCircle className="h-5 w-5 text-orange-600" />
@@ -146,6 +145,7 @@ export default function SignUpPage() {
                 Continue with Google
               </Button>
 
+              {/* Divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300" />
@@ -228,11 +228,12 @@ export default function SignUpPage() {
                   </div>
                 </div>
 
-                    onCheckedChange={(checked: boolean | "indeterminate") => setAgreeToTerms(!!checked)}
+                {/* Terms & Conditions */}
+                <div className="flex items-start gap-2">
                   <Checkbox
                     id="terms"
                     checked={agreeToTerms}
-                    onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
+                    onCheckedChange={(checked) => setAgreeToTerms(!!checked)}
                     className="mt-1"
                   />
                   <label htmlFor="terms" className="text-sm text-gray-700 leading-relaxed">
@@ -247,6 +248,7 @@ export default function SignUpPage() {
                   </label>
                 </div>
 
+                {/* Submit */}
                 <Button
                   type="submit"
                   disabled={isLoading || !agreeToTerms}
@@ -263,7 +265,7 @@ export default function SignUpPage() {
                 </Button>
               </form>
 
-              {/* Sign In Link */}
+              {/* Sign In Redirect */}
               <div className="text-center pt-4 border-t border-gray-200">
                 <p className="text-gray-600">
                   Already have an account?{" "}
@@ -273,9 +275,12 @@ export default function SignUpPage() {
                 </p>
               </div>
 
-              {/* Back to Home */}
+              {/* Back Home */}
               <div className="text-center">
-                <Link href="/" className="inline-flex items-center text-gray-500 hover:text-gray-700 text-sm">
+                <Link
+                  href="/"
+                  className="inline-flex items-center text-gray-500 hover:text-gray-700 text-sm"
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Home
                 </Link>
