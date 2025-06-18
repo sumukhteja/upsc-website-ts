@@ -1,0 +1,498 @@
+service: upsc-master-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-south-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    REGION: ${self:provider.region}
+    STAGE: ${self:provider.stage}
+    USERS_TABLE: ${self:service}-${self:provider.stage}-users
+    QUIZ_TABLE: ${self:service}-${self:provider.stage}-quiz
+    MAPS_TABLE: ${self:service}-${self:provider.stage}-maps
+    FILES_TABLE: ${self:service}-${self:provider.stage}-files
+    ANALYTICS_TABLE: ${self:service}-${self:provider.stage}-analytics
+    S3_BUCKET: ${self:service}-${self:provider.stage}-files-bucket
+    COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+    COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+    JWT_SECRET: ${env:JWT_SECRET, 'your-super-secret-jwt-key-change-in-production'}
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.USERS_TABLE}/index/*"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.QUIZ_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.QUIZ_TABLE}/index/*"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.MAPS_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.MAPS_TABLE}/index/*"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.FILES_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ANALYTICS_TABLE}"
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:ListBucket
+          Resource:
+            - "arn:aws:s3:::${self:provider.environment.S3_BUCKET}"
+            - "arn:aws:s3:::${self:provider.environment.S3_BUCKET}/*"
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminSetUserPassword
+            - cognito-idp:AdminGetUser
+            - cognito-idp:ListUsers
+            - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:AdminDeleteUser
+          Resource:
+            - "arn:aws:cognito-idp:${self:provider.region}:*:userpool/*"
+
+functions:
+  # Authentication Functions
+  authSignUp:
+    handler: src/handlers/auth.signUp
+    events:
+      - http:
+          path: api/auth/signup
+          method: post
+          cors: true
+
+  authSignIn:
+    handler: src/handlers/auth.signIn
+    events:
+      - http:
+          path: api/auth/signin
+          method: post
+          cors: true
+
+  authVerify:
+    handler: src/handlers/auth.verify
+    events:
+      - http:
+          path: api/auth/verify
+          method: post
+          cors: true
+
+  authRefresh:
+    handler: src/handlers/auth.refresh
+    events:
+      - http:
+          path: api/auth/refresh
+          method: post
+          cors: true
+
+  # User Management Functions
+  getUsers:
+    handler: src/handlers/users.getUsers
+    events:
+      - http:
+          path: api/users
+          method: get
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  createUser:
+    handler: src/handlers/users.createUser
+    events:
+      - http:
+          path: api/users
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  updateUser:
+    handler: src/handlers/users.updateUser
+    events:
+      - http:
+          path: api/users/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  deleteUser:
+    handler: src/handlers/users.deleteUser
+    events:
+      - http:
+          path: api/users/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  # Quiz Management Functions
+  getQuizzes:
+    handler: src/handlers/quiz.getQuizzes
+    events:
+      - http:
+          path: api/quiz
+          method: get
+          cors: true
+
+  createQuiz:
+    handler: src/handlers/quiz.createQuiz
+    events:
+      - http:
+          path: api/quiz
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  updateQuiz:
+    handler: src/handlers/quiz.updateQuiz
+    events:
+      - http:
+          path: api/quiz/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  deleteQuiz:
+    handler: src/handlers/quiz.deleteQuiz
+    events:
+      - http:
+          path: api/quiz/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  # Maps Management Functions
+  getMaps:
+    handler: src/handlers/maps.getMaps
+    events:
+      - http:
+          path: api/maps
+          method: get
+          cors: true
+
+  createMap:
+    handler: src/handlers/maps.createMap
+    events:
+      - http:
+          path: api/maps
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  updateMap:
+    handler: src/handlers/maps.updateMap
+    events:
+      - http:
+          path: api/maps/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  deleteMap:
+    handler: src/handlers/maps.deleteMap
+    events:
+      - http:
+          path: api/maps/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  # File Management Functions
+  uploadFile:
+    handler: src/handlers/files.uploadFile
+    events:
+      - http:
+          path: api/files/upload
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  getFiles:
+    handler: src/handlers/files.getFiles
+    events:
+      - http:
+          path: api/files
+          method: get
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  deleteFile:
+    handler: src/handlers/files.deleteFile
+    events:
+      - http:
+          path: api/files/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  # Analytics Functions
+  getAnalytics:
+    handler: src/handlers/analytics.getAnalytics
+    events:
+      - http:
+          path: api/analytics
+          method: get
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  createAnalyticsEvent:
+    handler: src/handlers/analytics.createEvent
+    events:
+      - http:
+          path: api/analytics/event
+          method: post
+          cors: true
+
+  # CSV Upload Functions
+  csvUploadQuiz:
+    handler: src/handlers/csv.uploadQuiz
+    timeout: 30
+    events:
+      - http:
+          path: api/csv/quiz
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+  csvUploadMaps:
+    handler: src/handlers/csv.uploadMaps
+    timeout: 30
+    events:
+      - http:
+          path: api/csv/maps
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+resources:
+  Resources:
+    # Cognito User Pool
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-${self:provider.stage}-user-pool
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-${self:provider.stage}-client
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+        GenerateSecret: false
+
+    # DynamoDB Tables
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USERS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: EmailIndex
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    QuizTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.QUIZ_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: subject
+            AttributeType: S
+          - AttributeName: difficulty
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: SubjectIndex
+            KeySchema:
+              - AttributeName: subject
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: DifficultyIndex
+            KeySchema:
+              - AttributeName: difficulty
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    MapsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.MAPS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: category
+            AttributeType: S
+          - AttributeName: region
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: CategoryIndex
+            KeySchema:
+              - AttributeName: category
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: RegionIndex
+            KeySchema:
+              - AttributeName: region
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+
+    FilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.FILES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    AnalyticsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.ANALYTICS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    # S3 Bucket
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.S3_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              AllowedOrigins:
+                - "*"
+              MaxAge: 3000
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref CognitoUserPool
+      Export:
+        Name: ${self:service}-${self:provider.stage}-UserPoolId
+    
+    UserPoolClientId:
+      Value: !Ref CognitoUserPoolClient
+      Export:
+        Name: ${self:service}-${self:provider.stage}-UserPoolClientId
+    
+    S3BucketName:
+      Value: !Ref S3Bucket
+      Export:
+        Name: ${self:service}-${self:provider.stage}-S3BucketName
+
+plugins:
+  - serverless-offline

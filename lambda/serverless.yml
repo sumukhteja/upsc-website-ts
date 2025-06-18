@@ -1,0 +1,86 @@
+service: upsc-master-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    STAGE: ${self:provider.stage}
+    SUPABASE_URL: ${env:SUPABASE_URL}
+    SUPABASE_ANON_KEY: ${env:SUPABASE_ANON_KEY}
+    SUPABASE_SERVICE_ROLE_KEY: ${env:SUPABASE_SERVICE_ROLE_KEY}
+    NEXTAUTH_SECRET: ${env:NEXTAUTH_SECRET}
+    GOOGLE_CLIENT_ID: ${env:GOOGLE_CLIENT_ID}
+    GOOGLE_CLIENT_SECRET: ${env:GOOGLE_CLIENT_SECRET}
+  
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+        - s3:DeleteObject
+      Resource: "arn:aws:s3:::upsc-master-files/*"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/upsc-*"
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+functions:
+  # Auth functions
+  auth:
+    handler: src/handlers/auth.handler
+    events:
+      - http:
+          path: /api/auth/{proxy+}
+          method: ANY
+          cors: true
+
+  # Admin functions
+  admin:
+    handler: src/handlers/admin.handler
+    events:
+      - http:
+          path: /api/admin/{proxy+}
+          method: ANY
+          cors: true
+
+  # Content functions
+  content:
+    handler: src/handlers/content.handler
+    events:
+      - http:
+          path: /api/{proxy+}
+          method: ANY
+          cors: true
+
+  # File upload function
+  upload:
+    handler: src/handlers/upload.handler
+    events:
+      - http:
+          path: /api/upload
+          method: POST
+          cors: true
+    timeout: 30
+
+resources:
+  Resources:
+    FilesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: upsc-master-files-${self:provider.stage}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, PUT, POST, DELETE]
+              AllowedOrigins: ['*']
